@@ -13,6 +13,7 @@ import {
 import { clamp, mulberry32, pick, rint, rnd } from "./util";
 import { bakeChunk } from "./art/world";
 import { CIV_LOOKS, pickClassLook } from "./art/characters";
+import { isSheetClass } from "./art/sheetLogic";
 import { poseOf } from "./art/poses";
 
 export const hooks: { finishRun: (t: string) => void } = { finishRun: () => {} };
@@ -42,9 +43,12 @@ export function newRun(demo: boolean) {
 }
 export function addUnit(cls: string, x: number, y: number) {
   const r = G.run;
-  const { look, gender } = pickClassLook(cls);
+  const picked = pickClassLook(cls);
+  const gender: "m" | "f" = isSheetClass(cls) ? (cls === "cutter" ? "f" : "m") : picked.gender;
+  const variant = r.units.filter((x: any) => x.cls === cls).length % 4;
+  const look = isSheetClass(cls) ? (cls === "cutter" ? "cutter_f0" : `${cls}_m0`) : picked.look;
   const u: any = {
-    id: r.uid++, team: 0, cls, look, gender, name: pick(gender === "f" ? NAMES_F : NAMES_M), x, y, kx: 0, ky: 0, face: 1, lvl: 1, xp: 0, eq: { head: null, weapon: null, neck: null, body: null },
+    id: r.uid++, team: 0, cls, look, variant, gender, name: pick(gender === "f" ? NAMES_F : NAMES_M), x, y, kx: 0, ky: 0, face: 1, lvl: 1, xp: 0, eq: { head: null, weapon: null, neck: null, body: null },
     cmd: "auto", state: "idle", st: 0, atkCd: rnd(0, 0.4), flash: 0, armorT: 0, combatT: 0, dead: false, deadT: 0, downT: 0, anim: rnd(0, 4), moving: false, moveT: 0,
     busy: false, fleeT: 0, lootP: null, lootShop: null, exitDoorX: null, lootT: 0, focus: null, focusObj: null, cmdProp: null, hitDone: false, atkDur: 0.34, atkT: null, atkSeq: 0,
     stepT: 0, kres: 0, hp: undefined, maxHp: 0,

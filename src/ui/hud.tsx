@@ -6,6 +6,7 @@ import { Casino, buyItem, closeModal, invClick, marketPrice, mergeAll, onEscape,
 import { arenaMouse, setArena, setSlot } from "../game/engine";
 import { iconURL } from "../game/art/props";
 import { getSprite, OX, OY } from "../game/art/characters";
+import { drawSheetPortrait } from "../game/art/spriteSheets";
 import { lookOf, poseOf } from "../game/render";
 import { Btn, Panel, useGame } from "./common";
 import { cn } from "../utils/cn";
@@ -165,9 +166,11 @@ function Portrait({ unit }: { unit: any }) {
     const draw = () => {
       raf = requestAnimationFrame(draw);
       const c = ref.current; if (!c) return; const g = c.getContext("2d")!; g.imageSmoothingEnabled = false; g.clearRect(0, 0, 56, 80);
-      const pp = poseOf(unit, gameState.t);
-      const spr = getSprite(lookOf(unit), pp[0] === "walk" ? "idle" : pp[0], pp[0] === "walk" ? 0 : pp[1], unit.eqi, 1, unit.flash > 0, unit.atkSeq || 0);
-      g.drawImage(spr, OX - 28, OY - 79, 56, 80, 0, 0, 56, 80);
+      if (!drawSheetPortrait(g, unit, gameState.t, 56, 80)) {
+        const pp = poseOf(unit, gameState.t);
+        const spr = getSprite(lookOf(unit), pp[0] === "walk" ? "idle" : pp[0], pp[0] === "walk" ? 0 : pp[1], unit.eqi, 1, unit.flash > 0, unit.atkSeq || 0);
+        g.drawImage(spr, OX - 28, OY - 79, 56, 80, 0, 0, 56, 80);
+      }
     };
     draw(); return () => cancelAnimationFrame(raf);
   }, [unit]);

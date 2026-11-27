@@ -1,6 +1,7 @@
 /* Общее состояние игры + эффекты арены. React подписывается через subscribe(). */
 import { BAL } from "./consts";
 import { clamp, pick, rnd } from "./util";
+import { isSheetClass, selectSheetFrame } from "./art/sheetLogic";
 
 export const G: any = {
   mode: "menu", run: null, speed: 1, paused: false, modal: null as null | { type: string; data?: any },
@@ -90,8 +91,12 @@ export function afterimage(u: any, col = "#6fe0e6", pose?: string, fr?: number) 
   const r = G.run; if (!r) return;
   if (!r.ghosts) r.ghosts = [];
   if (r.ghosts.length > 32) r.ghosts.shift();
+  const useSheet = u.team === 0 && isSheetClass(u.cls);
   r.ghosts.push({
     x: u.x, y: u.y, face: u.face >= 0 ? 1 : -1,
+    cls: useSheet ? u.cls : undefined,
+    variant: u.variant || 0,
+    sheetFrame: useSheet ? selectSheetFrame(u, G.t).frame : 0,
     look: u.look || (u.team === 0 ? u.cls : u.type),
     eqi: u.team === 0 ? { ...u.eqi } : null,
     pose: pose || u.state || "idle",

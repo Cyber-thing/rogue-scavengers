@@ -7,25 +7,27 @@
 import { W, H, K, CHPX, BAL } from "./consts";
 import { G, starsNow } from "./state";
 import { getSprite, OX, OY } from "./art/characters";
+import { drawSheetGhost, drawSheetUnit } from "./art/spriteSheets";
 import { poseOf } from "./art/poses";
 import { propSprite } from "./art/props";
 import { art, farBeacons, farLogos, LAYER_W, PF } from "./art/world";
 import { CLASSES } from "./content";
+import { shopForIndoorUnit } from "./shopLogic";
 import { clamp, rnd } from "./util";
 
-export { poseOf };
+export { poseOf, shopForIndoorUnit };
 
 const GY = 176;      // тротуар
 const ROAD = 218;    // начало дороги
 
 export const lookOf = (u: any) => u.look || (u.team === 0 ? u.cls : u.type);
 const BASE_HEIGHT: Record<string, number> = {
-  hulk: 80,
+  hulk: 88,
   exo: 84,
   trooper: 77,
-  rat: 71,
-  runner: 72,
-  cutter: 71,
+  rat: 78,
+  runner: 78,
+  cutter: 78,
   guard: 73,
   agent: 74,
 };
@@ -316,14 +318,6 @@ function drawSteam(g: CanvasRenderingContext2D, cam: number, r: any) {
 }
 
 /* ---------- магазины и точки взлома ---------- */
-export function shopForIndoorUnit(u: any, r: any) {
-  if (!u || u.dead || u.y >= 147) return null;
-  if (u.lootShop && !u.lootShop.looted) return u.lootShop;
-  for (const p of r.props) {
-    if (p.kind === "shop" && !p.looted && Math.abs(u.x - p.x) < 90) return p;
-  }
-  return null;
-}
 
 function drawOpenShopDoor(g: CanvasRenderingContext2D, p: any, x0: number) {
   const isNet = p.type === "netcafe";
@@ -547,18 +541,18 @@ function drawGhost(g: CanvasRenderingContext2D, gh: any, cam: number) {
   const f = gh.t / gh.life;
   const al = Math.max(0, 1 - f) * 0.42;
   if (al <= 0.02) return;
-  const spr = getSprite(gh.look, gh.pose, gh.fr, gh.eqi, gh.face, true, gh.combo || 0);
   const sx = sxOf(gh.x, cam), sy = syOf(gh.y);
   g.save();
   g.globalAlpha = al;
   g.globalCompositeOperation = "lighter";
-  g.drawImage(spr, sx - OX, sy - OY + 1);
+  if (!drawSheetGhost(g, gh, sx, sy)) {
+    const spr = getSprite(gh.look, gh.pose, gh.fr, gh.eqi, gh.face, true, gh.combo || 0);
+    g.drawImage(spr, sx - OX, sy - OY + 1);
+  }
   g.restore();
 }
 
 function drawFighter(g: CanvasRenderingContext2D, u: any, cam: number, withBars = true) {
-  const look = lookOf(u), pp = poseOf(u, G.t);
-  const spr = getSprite(look, pp[0], pp[1], u.team === 0 ? u.eqi : null, u.face >= 0 ? 1 : -1, u.flash > 0, u.atkSeq || 0);
   let al = 1;
   if (u.dead) {
     al = u.deadT > 1 ? Math.max(0, 1 - (u.deadT - 1) * 1.6) : 1;
@@ -566,7 +560,11 @@ function drawFighter(g: CanvasRenderingContext2D, u: any, cam: number, withBars 
   }
   const sx = sxOf(u.x, cam), sy = syOf(u.y);
   if (al < 1) g.globalAlpha = al;
-  g.drawImage(spr, sx - OX, sy - OY + 1);
+  if (!drawSheetUnit(g, u, sx, sy, G.t)) {
+    const look = lookOf(u), pp = poseOf(u, G.t);
+    const spr = getSprite(look, pp[0], pp[1], u.team === 0 ? u.eqi : null, u.face >= 0 ? 1 : -1, u.flash > 0, u.atkSeq || 0);
+    g.drawImage(spr, sx - OX, sy - OY + 1);
+  }
   g.globalAlpha = 1;
   if (u.dead || !withBars) return;
   drawBars(g, u, sx, sy);

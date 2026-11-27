@@ -6,8 +6,9 @@ import { Px } from "./art/px.ts";
 import { BAL } from "./consts.ts";
 import { NAMES_F, NAMES_M } from "./content.ts";
 import { getMenuIntroState, MENU_SUBTITLE, MENU_TIMING } from "./menuIntro.ts";
-import { shopForIndoorUnit } from "./render.ts";
+import { shopForIndoorUnit } from "./shopLogic.ts";
 import { BIZ_PLOTS, BIZ_ORDER, describeBizStage, hitTestBizPlot } from "./art/bizStreet.ts";
+import { isSheetClass, recolorAtlasPixels, selectSheetFrame, SHEET_CLASSES } from "./art/sheetLogic.ts";
 
 test("character proportions avoid oversized heads across all scales", () => {
   for (const scale of [0.78, 0.94, 1.0, 1.09, 1.14]) {
@@ -213,4 +214,41 @@ test("interactive business street maps plots accurately and evolves buildings ac
   assert.equal(s2.hasStreetProp, true);
   assert.equal(s2.hasRooftopHolo, false);
   assert.equal(s3.hasRooftopHolo, true);
+});
+
+test("gang sprite-sheet logic maps poses smoothly and recolors variants safely", () => {
+  for (const cls of SHEET_CLASSES) assert.equal(isSheetClass(cls), true);
+  assert.equal(isSheetClass("guard"), false);
+
+  assert.equal(selectSheetFrame({ cls: "rat", state: "idle", moving: false, id: 1 }, 0).frame, 0);
+  const walkSet = new Set<number>();
+  for (let i = 0; i < 4; i++) {
+    walkSet.add(selectSheetFrame({ cls: "cutter", state: "idle", moving: true, anim: i / 6 + 0.01 }, 0).frame);
+  }
+  assert.deepEqual([...walkSet].sort((a, b) => a - b), [1, 2, 3]);
+
+  const meleeWindup = selectSheetFrame({ cls: "hulk", state: "attack", st: 0.03, atkDur: 0.36 }, 0);
+  const meleeStrike = selectSheetFrame({ cls: "hulk", state: "attack", st: 0.22, atkDur: 0.36 }, 0);
+  assert.equal(meleeWindup.frame, 4);
+  assert.equal(meleeStrike.frame, 5);
+  assert.ok(meleeStrike.lungeX > 0);
+
+  const rangedAim = selectSheetFrame({ cls: "runner", state: "attack", st: 0.02, atkDur: 0.36 }, 0);
+  const rangedFire = selectSheetFrame({ cls: "runner", state: "attack", st: 0.25, atkDur: 0.36 }, 0);
+  assert.equal(rangedAim.frame, 0);
+  assert.equal(rangedFire.frame, 5);
+
+  assert.equal(selectSheetFrame({ cls: "rat", state: "loot", moving: false, id: 1 }, 0).frame, 4);
+  assert.equal(selectSheetFrame({ cls: "rat", state: "hurt" }, 0).frame, 6);
+  assert.equal(selectSheetFrame({ cls: "rat", state: "down", downT: 0.5 }, 0).frame, 7);
+
+  // Cutter crimson jacket pixel shifts on variant 1 while transparent pixel stays untouched
+  const px = new Uint8ClampedArray([160, 42, 46, 255, 0, 0, 0, 0]);
+  recolorAtlasPixels(px, "cutter", 1, false);
+  assert.ok(px[2] > px[0], "variant 1 cutter jacket should shift crimson toward cobalt");
+  assert.equal(px[7], 0, "transparent pixel must remain transparent");
+
+  recolorAtlasPixels(px, "cutter", 0, true);
+  assert.equal(px[0], 246);
+  assert.equal(px[7], 0);
 });
