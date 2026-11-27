@@ -7,8 +7,13 @@ import { render } from "./render";
 import { initArt } from "./art/world";
 import { iconCanvas } from "./art/props";
 import { SYMS } from "./content";
-import { Casino, casinoUpdate, closeModal, selectUnit, setCmd, showMenu, toggleSound, togglePause } from "./economy";
+import { Casino, casinoUpdate, closeModal, selectUnit, setCmd, showMenu, startRun, toggleSound, togglePause } from "./economy";
 import { clamp } from "./util";
+
+function syncBodyState() {
+  const st = G.mode === "menu" ? "title" : G.mode === "results" ? "gameover" : G.paused ? "paused" : "playing";
+  if (document.body && document.body.dataset.state !== st) document.body.dataset.state = st;
+}
 
 let ctx: CanvasRenderingContext2D | null = null;
 let slotCtx: CanvasRenderingContext2D | null = null;
@@ -59,9 +64,10 @@ export function arenaMouse(e: MouseEvent, cv: HTMLCanvasElement) {
 function onKey(e: KeyboardEvent) {
   Snd.init(); Snd.resume(); if (e.repeat) return;
   if (e.code === "Escape" && G.modal && G.mode !== "results") { closeModal(); return; }
+  if (G.mode === "menu" && !G.modal && (e.code === "Enter" || e.code === "Space")) { e.preventDefault(); startRun(); syncBodyState(); return; }
   if (G.mode !== "run" || G.modal) return;
   const c = e.code;
-  if (c === "Space") { e.preventDefault(); togglePause(); return; }
+  if (c === "Space" || c === "KeyP") { e.preventDefault(); togglePause(); syncBodyState(); return; }
   if (c === "KeyM") { toggleSound(); return; }
   if (/^Digit[1-5]$/.test(c)) { const u = aliveUnits()[+c.slice(5) - 1]; if (u) selectUnit(u.id); return; }
   if (c === "KeyA") setCmd("attack"); else if (c === "KeyL") setCmd("loot"); else if (c === "KeyF") setCmd("follow"); else if (c === "KeyQ") setCmd("auto");
@@ -81,6 +87,7 @@ function frame(ts: number) {
   } else if (G.mode === "menu") demoStep(real);
   else if (G.mode === "results") updateFx(real);
   casinoUpdate(real);
+  syncBodyState();
   if (ctx) render(ctx);
   drawCasino();
   if (ts - lastN > 100) { lastN = ts; notify(); }
@@ -93,7 +100,11 @@ export async function initGame() {
       new Promise((r) => setTimeout(r, 2500)),
     ]);
   } catch { /* шрифты не критичны */ }
-  loadMeta(); Snd.on = meta.sound; initArt(); showMenu();
+  loadMeta(); Snd.on = meta.sound; initArt();
+  const auto = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("autostart") === "1";
+  if (auto) startRun();
+  else showMenu();
+  syncBodyState();
   document.addEventListener("keydown", onKey);
   document.addEventListener("pointerdown", () => { Snd.init(); Snd.resume(); }, { once: false });
   G.ready = true; notify(); requestAnimationFrame(frame);

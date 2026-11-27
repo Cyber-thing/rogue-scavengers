@@ -139,6 +139,7 @@ export function showMenu() {
   G.modal = null; G.mode = "menu"; G.paused = false; G.selItem = -1; newRun(true); notify();
 }
 export function startRun() {
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
   G.modal = null; newRun(false); G.mode = "run"; G.paused = false; G.speed = 1; G.selItem = -1; G.hitStop = 0; G.shake = 0; G.escArm = 0;
   Casino.spinning = false; Casino.reels.forEach((r: any) => (r.stopped = true)); setMsg("Три в ряд — джекпот!"); toast("НОВЫЙ ЗАБЕГ — ДЕРЖИТЕСЬ ВМЕСТЕ!");
 }

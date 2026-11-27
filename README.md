@@ -1,28 +1,20 @@
-# ROGUE SCAVENGERS
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-Киберпанк-roguelite о банде **Scavenger Kingdom**, которая грабит корпоративные кварталы
-(Agogee Heights, Intercell Synthetics, Fusion Cybernetics, Slayer Inc.) под присмотром системы безопасности **WARDEN**.
-Визуальный стиль — приглушённый «плёночный» киберпанк 90-х и пиксель-арт в духе Streets of Rage.
-Лор и фракции — из соседнего проекта GMS-9000.
+# Run and deploy your AI Studio app
 
-Геймплей прежней версии (ROGUE 90') сохранён: автобой банды, вскрытие точек, REP/найм, экипировка,
-тотализатор, розыск → уровни WARDEN, мета-прогресс через бизнесы. Добавлены мирные жители, разбегающиеся от бунта.
+This contains everything you need to run your app locally.
 
-## Запуск
-```
-npm install
-npm run dev     # разработка
-npm run build   # сборка в dist/index.html (single-file)
-```
+View your app in AI Studio: https://ai.studio/apps/8568c4a0-5b53-452b-ae33-a4b1319f5a1e
 
-## Структура
-- `src/game/consts.ts, content.ts` — баланс, классы, враги, предметы, бизнесы, тексты (весь лор здесь)
-- `src/game/sim.ts` — симуляция: бой, ИИ, спавн, события, гражданские
-- `src/game/economy.ts` — инвентарь, казино, найм, мета-прогресс, флоу меню
-- `src/game/render.ts` — рендер арены (640×360, пиксель-арт, свет, дождь)
-- `src/game/art/px.ts` — мини-растеризатор: маски, форм-шейдинг, аутлайн
-- `src/game/art/characters.ts` — скелетная риг-система персонажей (FK, позы, экипировка, гражданские)
-- `src/game/art/world.ts` — небо, параллакс-мегаполис, фасады и вывески улиц
-- `src/game/art/props.ts` — иконки, пропсы (машины, терминалы, фонари…)
-- `src/ui/*` — React-интерфейс (HUD, меню, модальные окна)
-- `legacy/rogue90-original.html` — исходная версия игры одним файлом
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

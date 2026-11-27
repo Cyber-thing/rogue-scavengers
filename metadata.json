@@ -1,0 +1,6 @@
+{
+  "name": "ROGUE SCAVENGERS",
+  "description": "Киберпанк-roguelite о банде Scavenger Kingdom против корпораций. Детализированный ретро пиксель-арт в духе Streets of Rage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

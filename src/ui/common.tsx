@@ -7,9 +7,9 @@ export function useGame() {
   return G;
 }
 
-export function Btn(p: { children: ReactNode; onClick?: () => void; variant?: "amber" | "red" | "cyan" | "ghost"; disabled?: boolean; small?: boolean; on?: boolean; grow?: boolean; title?: string; className?: string; id?: string }) {
+export function Btn(p: { children: ReactNode; onClick?: () => void; variant?: "amber" | "red" | "cyan" | "ghost"; disabled?: boolean; small?: boolean; on?: boolean; grow?: boolean; title?: string; className?: string; id?: string; "data-start"?: string }) {
   return (
-    <button id={p.id} title={p.title} disabled={p.disabled} onClick={p.onClick}
+    <button id={p.id} title={p.title} disabled={p.disabled} onClick={p.onClick} data-start={p["data-start"]}
       className={cn("btn", p.variant && "btn-" + p.variant, p.small && "btn-sm", p.on && "btn-on", p.grow && "grow", p.className)}>
       {p.children}
     </button>

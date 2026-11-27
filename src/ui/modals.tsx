@@ -1,49 +1,47 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BAL, DL } from "../game/consts";
-import { BIZ, CLASSES, LORE } from "../game/content";
+import { BIZ, CLASSES } from "../game/content";
 import { aliveUnits, meta } from "../game/state";
-import { bizBuy, closeModal, hire, openModal, resetProgress, showMenu, startRun } from "../game/economy";
-import { bizIcon } from "../game/art/props";
-import { getSprite, OX, OY } from "../game/art/characters";
+import { bizBuy, closeModal, hire, openModal, showMenu, startRun } from "../game/economy";
+import { BIZ_ORDER, BizId, STREET_H, STREET_W, drawBizStreet, hitTestBizPlot } from "../game/art/bizStreet";
+import portraitRat from "../assets/images/portrait_rat_1795772298965.jpg";
+import portraitHulk from "../assets/images/portrait_hulk_1795772297781.jpg";
+import portraitRunner from "../assets/images/portrait_runner_1795772299291.jpg";
+import portraitCutter from "../assets/images/portrait_cutter_1795772300358.jpg";
 import { Btn, Modal, useGame } from "./common";
-import keyart from "../assets/keyart.jpg";
 import { cn } from "../utils/cn";
 
-/* --------------------------------- ГЛАВНОЕ МЕНЮ --------------------------------- */
-export function MainMenu() {
-  return (
-    <div className="menu">
-      <img src={keyart} alt="" className="menu-art" />
-      <div className="menu-shade" />
-      <div className="menu-top">
-        <div className="menu-kicker">SCAVENGER KINGDOM · SECTOR WEST-1</div>
-        <h1 className="menu-title"><span>ROGUE</span> SCAVENGERS</h1>
-        <div className="menu-sub">{LORE.sub}</div>
-      </div>
-      <div className="menu-bottom">
-        <p className="menu-lore">{LORE.intro}</p>
-        <div className="menu-stats">
-          <span>Отмыто: <b>{DL}{meta.laundered}</b></span><span>Лучшая дистанция: <b>{meta.bestDist}м</b></span><span>Забегов: <b>{meta.runs}</b></span>
-        </div>
-        <div className="menu-btns">
-          <Btn variant="amber" className="btn-xl" onClick={startRun}>▶ Новый забег</Btn>
-          <Btn onClick={() => openModal("biz")}>Бизнесы</Btn>
-          <Btn onClick={() => openModal("help")}>Как играть</Btn>
-          <Btn small variant="ghost" onClick={() => { if (confirm("Сбросить весь прогресс (бизнесы и отмытые деньги)?")) resetProgress(); }}>Сбросить прогресс</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
+const CLASS_PORTRAITS: Record<string, string> = {
+  rat: portraitRat,
+  hulk: portraitHulk,
+  runner: portraitRunner,
+  cutter: portraitCutter,
+};
 
 /* --------------------------------- ПОРТРЕТ КЛАССА --------------------------------- */
-function ClassPortrait({ cls }: { cls: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current; if (!c) return; const g = c.getContext("2d")!; g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height);
-    g.drawImage(getSprite(cls, "idle", 0, {}, 1, false), OX - 36, OY - 86, 72, 90, 0, 0, 144, 180);
-  }, [cls]);
-  return <canvas ref={ref} width={144} height={180} className="class-portrait" />;
+function ClassPortrait({ cls, name }: { cls: string; name: string }) {
+  const [broken, setBroken] = useState(false);
+  const src = CLASS_PORTRAITS[cls];
+  if (!src || broken) {
+    return (
+      <div className="class-portrait class-portrait-fallback" role="img" aria-label={name}>
+        <span>{name}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="class-portrait-frame">
+      <img
+        src={src}
+        alt={`Портрет класса ${name}`}
+        width={144}
+        height={180}
+        className="class-portrait"
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+      />
+    </div>
+  );
 }
 
 /* ---------------------------------- МОДАЛКИ ---------------------------------- */
@@ -59,7 +57,7 @@ function HireModal() {
           return (
             <div key={k} className="tile">
               <div className="tile-tag">{C.tag}</div>
-              <ClassPortrait cls={k} />
+              <ClassPortrait cls={k} name={C.name} />
               <h3>{C.name}</h3>
               <p>{C.desc}</p>
               <p className="lore">{C.lore}</p>
@@ -73,34 +71,120 @@ function HireModal() {
     </Modal>
   );
 }
+
 function BizModal() {
   const G = useGame();
+  const [selectedId, setSelectedId] = useState<BizId>("laundry");
+  const [hoveredId, setHoveredId] = useState<BizId | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const selRef = useRef(selectedId);
+  const hovRef = useRef(hoveredId);
+  selRef.current = selectedId;
+  hovRef.current = hoveredId;
+
+  useEffect(() => {
+    let raf = 0;
+    const started = performance.now();
+    const renderStreet = (now: number) => {
+      raf = requestAnimationFrame(renderStreet);
+      const c = canvasRef.current;
+      if (!c) return;
+      const ctx = c.getContext("2d");
+      if (!ctx) return;
+      drawBizStreet(ctx, (now - started) / 1000, meta.biz, selRef.current, hovRef.current);
+    };
+    raf = requestAnimationFrame(renderStreet);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const pickAt = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const c = canvasRef.current;
+    if (!c) return null;
+    const rect = c.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    return hitTestBizPlot(nx, ny);
+  };
+
+  const B = BIZ[selectedId];
+  const lv = meta.biz[selectedId] || 0;
+  const cost = lv < 3 ? BAL.UPG[lv] : 0;
+
   return (
     <Modal wide>
       <h2>ВАШИ БИЗНЕСЫ</h2>
-      <div className="mod-line">Отмытые деньги: <b className="text-[#e0a43a] text-[17px]">{DL}{meta.laundered}</b> <span className="dim"> — улучшения действуют со следующего забега</span></div>
-      <div className="tiles g4">
-        {Object.keys(BIZ).map((id) => {
-          const B = BIZ[id], l = meta.biz[id], cost = l < 3 ? BAL.UPG[l] : 0;
+      <div className="mod-line">
+        Отмытые деньги: <b className="text-[#e0a43a] text-[17px]">{DL}{meta.laundered}</b>
+        <span className="dim"> — кликни по зданию на улице, чтобы купить или улучшить (действует со следующего забега)</span>
+      </div>
+
+      <div className="biz-street-wrap">
+        <canvas
+          ref={canvasRef}
+          width={STREET_W}
+          height={STREET_H}
+          data-testid="biz-street-canvas"
+          className={cn("biz-street-cv", hoveredId && "cursor-pointer")}
+          onMouseMove={(e) => setHoveredId(pickAt(e))}
+          onMouseLeave={() => setHoveredId(null)}
+          onClick={(e) => {
+            const hit = pickAt(e);
+            if (hit) setSelectedId(hit);
+          }}
+        />
+      </div>
+
+      <div className="biz-tabs" role="tablist" aria-label="Выбор здания">
+        {BIZ_ORDER.map((id) => {
+          const item = BIZ[id];
+          const curLv = meta.biz[id] || 0;
+          const active = selectedId === id;
           return (
-            <div key={id} className="tile">
-              <img src={bizIcon(id, B.sign)} width={192} height={128} alt="" className="biz-img" />
-              <h3>{B.name}</h3>
-              <p className="lore">{B.blurb}</p>
-              <div className="pips">{[0, 1, 2].map((i) => <i key={i} className={i < l ? "on" : ""} />)}</div>
-              <p>{B.eff(l)}</p>
-              {l < 3 ? <><p className="nx">▶ {B.eff(l + 1)}</p><Btn variant="amber" disabled={meta.laundered < cost} onClick={() => bizBuy(id)}>Улучшить {DL}{cost}</Btn></>
-                : <><p className="nx">МАКСИМАЛЬНЫЙ УРОВЕНЬ</p><Btn disabled>Готово</Btn></>}
-            </div>
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={cn("biz-tab", active && "active", curLv === 0 && "inactive")}
+              onClick={() => setSelectedId(id)}
+            >
+              <span className="biz-tab-name">{item.name}</span>
+              <span className="biz-tab-lv">{curLv === 0 ? "Закрыто" : `Lv.${curLv}/3`}</span>
+            </button>
           );
         })}
       </div>
+
+      <div className="biz-detail">
+        <div className="biz-detail-info">
+          <div className="biz-detail-head">
+            <h3>{B.name}</h3>
+            <div className="pips">{[0, 1, 2].map((i) => <i key={i} className={i < lv ? "on" : ""} />)}</div>
+            <span className="biz-stage-tag">{lv === 0 ? "Участок закрыт" : `Уровень ${lv}/3`}</span>
+          </div>
+          <p className="lore">{B.blurb}</p>
+          <p className="biz-eff">{lv === 0 ? "Здание пока не открыто на улице." : B.eff(lv)}</p>
+          <p className="nx">{lv < 3 ? `▶ Следующий уровень: ${B.eff(lv + 1)}` : "▶ МАКСИМАЛЬНЫЙ УРОВЕНЬ"}</p>
+        </div>
+        <div className="biz-detail-act">
+          {lv < 3 ? (
+            <Btn variant="amber" className="btn-xl" disabled={meta.laundered < cost} onClick={() => bizBuy(selectedId)}>
+              {lv === 0 ? `Купить ${DL}${cost}` : `Улучшить ${DL}${cost}`}
+            </Btn>
+          ) : (
+            <Btn disabled>Максимум</Btn>
+          )}
+        </div>
+      </div>
+
       <div className="mrow">
         {G.mode === "results" ? <><Btn variant="amber" onClick={startRun}>Новый забег</Btn><Btn onClick={showMenu}>В меню</Btn></> : <Btn variant="amber" onClick={closeModal}>Закрыть</Btn>}
       </div>
     </Modal>
   );
 }
+
 function HelpModal() {
   return (
     <Modal>
@@ -110,7 +194,7 @@ function HelpModal() {
         <p><b>Цикл:</b> бой → вскрытие точки (¥ над дверью) → REP → найм → экипировка → рост тревоги WARDEN → уход с добычей или задержание → отмытые деньги → бизнесы.</p>
         <p>• Клик по бойцу — выбрать (1–5). Команды: <b>A</b> атака, <b>L</b> вскрыть, <b>F</b> за мной, <b>Q</b> авто. Клик по врагу / объекту / точке отдаёт приказ выбранному бойцу.</p>
         <p>• Предмет: клик в рюкзаке, затем клик на бойца (или на такой же предмет — слить). Одинаковые предметы одного уровня объединяются до Lv.3.</p>
-        <p>• Тотализатор даёт кредиты, предметы и баффы, но в среднем забирает больше, чем отдаёт. Цена растёт каждые 3 спина.</p>
+        <p>• Рандомайзер Хаос даёт кредиты, предметы и баффы, но в среднем забирает больше, чем отдаёт. Цена растёт каждые 3 спина.</p>
         <p>• Тревога растёт от пути, взломов, поломок и убийств агентов. Ур.2 — службы безопасности Intercell, ур.4 — штурмовики Slayer. Враги крепнут со временем.</p>
         <p>• «Уйти с добычей» — безопасный выход. Задержание (все бойцы выбиты) конфискует часть добычи. Отмыто = дистанция×0.5 + кредиты×0.25 + убийства×2.</p>
         <p>• Пробел — пауза, M — звук, кнопка 1x/2x — скорость.</p>

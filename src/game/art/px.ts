@@ -1,9 +1,8 @@
 /* ======================================================================
-   PX — крошечный пиксельный растеризатор без сглаживания.
-   Маски (Mask) описывают форму детали, Px.paint() красит её 4-тоновой
-   рампой: подсветка по верхнему-левому краю, тень по нижнему-правому,
-   диагональное «форм-затенение» с дизерингом и тёмный шов поверх
-   соседних деталей. Из этого получается 16-битная «рисованная» подача.
+   PX — пиксельный растеризатор без сглаживания (16-битная ретро-графика).
+   Маски (Mask) задают форму детали; Px.paint() красит её 4-тоновой
+   рампой с диагональным форм-шейдингом, дизерингом Байера, бевелом
+   и тёмным швом поверх соседних деталей.
    ====================================================================== */
 
 export type Ramp = [string, string, string, string]; // hi, mid, lo, deep
@@ -27,20 +26,22 @@ export function mix(a: string, b: string, t: number): string {
   const A = rgba(a), B = rgba(b);
   return toHex([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]);
 }
-/* тени уходят в холодный индиго, света — в тёплый тон: «киношный» грейд */
-export const darken = (c: string, t: number) => mix(c, "#150f2a", t);
-export const lighten = (c: string, t: number) => mix(c, "#fff0d4", t);
+/* Тени уходят в глубокий индиго, света — в тёплый янтарно-кремовый тон */
+export const darken = (c: string, t: number) => mix(c, "#100c22", t);
+export const lighten = (c: string, t: number) => mix(c, "#fff1d6", t);
 
 const rampCache = new Map<string, Ramp>();
 export function ramp(mid: string): Ramp {
   let r = rampCache.get(mid);
   if (!r) {
-    r = [lighten(mid, 0.28), mid, darken(mid, 0.3), darken(mid, 0.58)];
+    r = [lighten(mid, 0.34), mid, darken(mid, 0.35), darken(mid, 0.65)];
     rampCache.set(mid, r);
   }
   return r;
 }
-export const dimRamp = (r: Ramp, t = 0.22): Ramp => [darken(r[0], t), darken(r[1], t), darken(r[2], t), darken(r[3], t)];
+export const dimRamp = (r: Ramp, t = 0.24): Ramp => [darken(r[0], t), darken(r[1], t), darken(r[2], t), darken(r[3], t)];
+
+const BAYER2 = [0, 2, 3, 1];
 
 /* ------------------------------ маски ------------------------------ */
 export class Mask {
@@ -164,8 +165,17 @@ export class Px {
     const c = rgba(col);
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (m.d[y * m.w + x]) this.put(m.x0 + x, m.y0 + y, c);
   }
-  /* основной «художник»: форм-затенение + бевел + шов */
-  paint(m: Mask, r: Ramp, o: { shade?: boolean; rim?: boolean; flat?: boolean } = {}) {
+  ditherFill(m: Mask, colA: string, colB: string) {
+    const cA = rgba(colA), cB = rgba(colB);
+    for (let y = 0; y < m.h; y++)
+      for (let x = 0; x < m.w; x++) {
+        if (!m.d[y * m.w + x]) continue;
+        const gx = m.x0 + x, gy = m.y0 + y;
+        this.put(gx, gy, ((gx + gy) & 1) === 0 ? cA : cB);
+      }
+  }
+  /* основной «художник»: 4-тоновое форм-затенение с Байер-дизерингом + бевел + шов */
+  paint(m: Mask, r: Ramp, o: { shade?: boolean; rim?: boolean; flat?: boolean; spec?: boolean } = {}) {
     const cols = r.map(rgba);
     const shade = o.shade !== false, rim = o.rim !== false;
     if (rim) {
@@ -181,7 +191,7 @@ export class Px {
         }
       seen.forEach((k) => {
         const i = k * 4;
-        this.d[i] *= 0.5; this.d[i + 1] *= 0.48; this.d[i + 2] *= 0.58;
+        this.d[i] *= 0.46; this.d[i + 1] *= 0.44; this.d[i + 2] *= 0.56;
       });
     }
     const cx = m.x0 + m.w / 2, cy = m.y0 + m.h / 2, rad = Math.max(m.w, m.h) / 2;
@@ -191,16 +201,23 @@ export class Px {
         const gx = m.x0 + x, gy = m.y0 + y;
         let c = 1;
         if (o.flat) { this.put(gx, gy, cols[1]); continue; }
-        if (shade && rad >= 2.5) {
-          const t = ((gx - cx) * 0.55 + (gy - cy) * 0.83) / rad;
-          if (t > 0.45) c = 2;
-          else if (t > 0.22) c = (gx + gy) & 1 ? 2 : 1;
-          else if (t < -0.5 && (gx + gy) % 2 === 0) c = 0;
+        if (shade && rad >= 2.2) {
+          const t = ((gx - cx) * 0.52 + (gy - cy) * 0.85) / rad;
+          const b = BAYER2[(gy & 1) * 2 + (gx & 1)] / 4;
+          if (t > 0.55) c = 3;
+          else if (t > 0.34) c = t > 0.44 + b * 0.14 ? 3 : 2;
+          else if (t > 0.12) c = t > 0.22 + b * 0.16 ? 2 : 1;
+          else if (t < -0.35) c = t < -0.52 + b * 0.14 ? 0 : 1;
         }
         const tl = !m.get(gx, gy - 1) || !m.get(gx - 1, gy);
         const br = !m.get(gx, gy + 1) || !m.get(gx + 1, gy);
         if (tl && !br) c = 0;
-        else if (br && !tl) c = c === 2 ? 3 : 2;
+        else if (br && !tl) c = c >= 2 ? 3 : 2;
+        if (o.spec && c === 0 && !m.get(gx - 1, gy - 1) && (gx + gy) % 3 === 0) {
+          const sp = cols[0];
+          this.put(gx, gy, [Math.min(255, sp[0] + 28), Math.min(255, sp[1] + 28), Math.min(255, sp[2] + 24), 255]);
+          continue;
+        }
         this.put(gx, gy, cols[c]);
       }
   }

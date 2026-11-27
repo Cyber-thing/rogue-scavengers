@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { initGame } from "./game/engine";
 import { ArenaView, Cards, Sidebar, TopBar } from "./ui/hud";
+import { MainMenu } from "./ui/MainMenu";
 import { ModalHost } from "./ui/modals";
 import { useGame } from "./ui/common";
 
@@ -14,6 +15,13 @@ export default function App() {
         <div className="loading-bar"><i /></div>
         <div className="loading-sub">ПОДКЛЮЧЕНИЕ К СЕТИ · WEST-1 · DIAL-IN…</div>
       </div>
+    );
+  if (G.mode === "menu")
+    return (
+      <>
+        <MainMenu />
+        <ModalHost />
+      </>
     );
   return (
     <div className="app">

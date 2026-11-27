@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { BAL, DL, H, W } from "../game/consts";
 import { CLASSES, ITEMS, SLOTS, SLOTNAME, itemDesc } from "../game/content";
-import { aliveUnits, starsNow } from "../game/state";
+import { aliveUnits, G as gameState, meta, starsNow } from "../game/state";
 import { Casino, buyItem, closeModal, invClick, marketPrice, mergeAll, onEscape, openModal, selectUnit, setCmd, spin, spinCost, toggleSound, togglePause, toggleSpeed, unequip, useMed, useStim } from "../game/economy";
 import { arenaMouse, setArena, setSlot } from "../game/engine";
 import { iconURL } from "../game/art/props";
 import { getSprite, OX, OY } from "../game/art/characters";
 import { lookOf, poseOf } from "../game/render";
 import { Btn, Panel, useGame } from "./common";
-import { MainMenu } from "./modals";
 import { cn } from "../utils/cn";
-import { meta } from "../game/state";
 
 /* ------------------------------ ВЕРХНЯЯ ПАНЕЛЬ ------------------------------ */
 function Sigil() {
@@ -75,12 +73,11 @@ export function ArenaView() {
   return (
     <section className="arena-wrap" ref={wrap}>
       <div className="arena-frame" style={{ width: size.w, height: size.h }}>
-        <canvas ref={cvs} width={W} height={H} className="arena-cv" onMouseDown={(e) => cvs.current && arenaMouse(e.nativeEvent, cvs.current)} />
+        <canvas ref={cvs} width={W} height={H} data-testid="arena-canvas" className="arena-cv" onMouseDown={(e) => cvs.current && arenaMouse(e.nativeEvent, cvs.current)} />
         <div className="crt" />
         <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
         {G.toastMsg && <div key={G.toastKey} className="toast">{G.toastMsg}</div>}
         {G.paused && G.mode === "run" && <div className="pause-tag">ПАУЗА</div>}
-        {G.mode === "menu" && <MainMenu />}
       </div>
     </section>
   );
@@ -103,7 +100,7 @@ export function Sidebar() {
   const cost = spinCost();
   return (
     <aside className="sidebar">
-      <Panel title="ТОТАЛИЗАТОР «ЛАКИ-9»" right={<span className="text-[#e8c25a]">{DL}{cost}</span>} tag="01">
+      <Panel title="РАНДОМАЙЗЕР ХАОС" right={<span className="text-[#e8c25a]">{DL}{cost}</span>} tag="01">
         <div className="slot-wrap"><SlotCanvas /></div>
         <Btn variant="amber" className="w-full mt-2" disabled={!run || Casino.spinning} onClick={spin}>{Casino.spinning ? "Крутим..." : `Крутить ${DL}${cost}`}</Btn>
         <div className="note">{Casino.msg}</div>
@@ -168,8 +165,9 @@ function Portrait({ unit }: { unit: any }) {
     const draw = () => {
       raf = requestAnimationFrame(draw);
       const c = ref.current; if (!c) return; const g = c.getContext("2d")!; g.imageSmoothingEnabled = false; g.clearRect(0, 0, 56, 80);
-      const pp = poseOf(unit), spr = getSprite(lookOf(unit), pp[0] === "walk" ? "idle" : pp[0], pp[0] === "walk" ? 0 : pp[1], unit.eqi, 1, unit.flash > 0);
-      g.drawImage(spr, OX - 28, OY - 82, 56, 84, 0, 0, 56, 84);
+      const pp = poseOf(unit, gameState.t);
+      const spr = getSprite(lookOf(unit), pp[0] === "walk" ? "idle" : pp[0], pp[0] === "walk" ? 0 : pp[1], unit.eqi, 1, unit.flash > 0, unit.atkSeq || 0);
+      g.drawImage(spr, OX - 28, OY - 79, 56, 80, 0, 0, 56, 80);
     };
     draw(); return () => cancelAnimationFrame(raf);
   }, [unit]);
